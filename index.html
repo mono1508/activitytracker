@@ -2,59 +2,162 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hybrid Tracker Aktivitas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Hybrid Tracker Pro</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <style>
-    /* Desain Mobile-First */
-    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { margin: 0; background-color: #f4f7f6; color: #333; padding-bottom: 70px; }
+    /* --- CSS Variables & Themes --- */
+    :root {
+      /* Mode Terang (Default) */
+      --bg-body: #f4f7f6;
+      --bg-card: #ffffff;
+      --bg-header: #1abc9c;
+      --bg-nav: #ffffff;
+      --text-main: #333333;
+      --text-muted: #7f8c8d;
+      --border-color: #e0e0e0;
+      --shadow: 0 2px 5px rgba(0,0,0,0.05);
+      --accent: #1abc9c;
+    }
+
+    body.dark-mode {
+      /* Mode Gelap */
+      --bg-body: #121212;
+      --bg-card: #1e1e1e;
+      --bg-header: #16a085;
+      --bg-nav: #1e1e1e;
+      --text-main: #e0e0e0;
+      --text-muted: #b0b0b0;
+      --border-color: #333333;
+      --shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    /* --- Reset & Base Styles --- */
+    * { box-sizing: border-box; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; background-color: var(--bg-body); color: var(--text-main); padding-bottom: 75px; transition: background 0.3s, color 0.3s; }
     
-    .header { background: #1abc9c; color: white; padding: 20px; text-align: center; border-bottom-left-radius: 15px; border-bottom-right-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .header h2 { margin: 0; font-size: 22px; }
+    /* --- Header & Theme Toggle --- */
+    .header { background: var(--bg-header); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom-left-radius: 15px; border-bottom-right-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
+    .header h2 { margin: 0; font-size: 20px; font-weight: 600; }
     
-    /* Navigasi Bawah */
-    .nav-bottom { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 1000; }
-    .nav-bottom button { flex: 1; padding: 15px; border: none; background: none; font-size: 14px; font-weight: bold; color: #bdc3c7; cursor: pointer; transition: 0.3s; }
-    .nav-bottom button.active { color: #1abc9c; border-top: 4px solid #1abc9c; }
+    .theme-switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+    .theme-switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: #2c3e50; }
+    input:checked + .slider:before { transform: translateX(24px); }
+
+    /* --- Navigasi Bawah --- */
+    .nav-bottom { position: fixed; bottom: 0; width: 100%; background: var(--bg-nav); display: flex; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 1000; border-top: 1px solid var(--border-color); }
+    .nav-bottom button { flex: 1; padding: 15px 5px; border: none; background: none; font-size: 13px; font-weight: bold; color: var(--text-muted); cursor: pointer; transition: 0.3s; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .nav-bottom button.active { color: var(--accent); }
+    .nav-icon { font-size: 18px; }
+
+    /* --- Konten Tab & Cards --- */
+    .tab-content { display: none; padding: 15px; }
+    .tab-content.active { display: block; animation: fadeIn 0.3s; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .card { background: var(--bg-card); margin-bottom: 12px; border-radius: 10px; box-shadow: var(--shadow); border: 1px solid var(--border-color); transition: background 0.3s, border 0.3s; }
     
-    /* Konten Tab */
-    .tab-content { display: none; padding: 20px; }
-    .tab-content.active { display: block; }
+    /* Style Form Checklist */
+    .day-header { padding: 15px; font-weight: bold; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 15px; }
+    .day-body { padding: 0 15px 15px 15px; border-top: 1px solid var(--border-color); display: none; }
+    .card.open .day-body { display: block; }
+    .habit-row { display: flex; justify-content: space-between; padding: 10px 0; align-items: center; font-size: 14px; border-bottom: 1px solid var(--border-color); }
+    .habit-row:last-child { border-bottom: none; }
     
-    /* Desain Card & Form */
-    .day-card { background: #fff; margin-bottom: 12px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e0e0e0; }
-    .day-header { padding: 15px; background: #fafafa; font-weight: bold; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-    .day-body { padding: 15px; border-top: 1px solid #eee; display: none; }
-    .day-card.open .day-body { display: block; }
+    input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent); cursor: pointer; transform: scale(1.1); }
+    input[type="checkbox"]:disabled { opacity: 0.5; cursor: not-allowed; }
     
-    .habit-row { display: flex; justify-content: space-between; margin-bottom: 12px; align-items: center; font-size: 15px; }
-    input[type="checkbox"] { width: 22px; height: 22px; accent-color: #1abc9c; cursor: pointer; }
-    input[type="checkbox"]:disabled { accent-color: #95a5a6; cursor: not-allowed; }
-    
-    /* Badge Status */
-    .badge { font-size: 12px; padding: 4px 8px; border-radius: 12px; }
+    /* Badges */
+    .badge { font-size: 11px; padding: 4px 8px; border-radius: 12px; font-weight: 600; }
     .badge-locked { background: #fadbd8; color: #c0392b; }
     .badge-active { background: #d5f5e3; color: #27ae60; }
     .badge-future { background: #ebdef0; color: #8e44ad; }
+    body.dark-mode .badge-locked { background: #561912; color: #ffb3ac; }
+    body.dark-mode .badge-active { background: #0e4429; color: #a6f7c5; }
+
+    /* --- Stats & Dashboard --- */
+    #capture-area { padding: 5px; } /* Area yg akan di-screenshot */
     
-    /* Dashboard & Pengaturan */
-    .stat-box { background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; }
-    .stat-box.center { text-align: center; }
-    .stat-box h3 { margin: 0 0 10px 0; color: #7f8c8d; font-size: 16px; }
-    .stat-box h1 { margin: 0; color: #1abc9c; font-size: 36px; }
+    .stats-container { display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px; }
+    .stat-main { background: var(--bg-card); padding: 20px; border-radius: 10px; text-align: center; box-shadow: var(--shadow); border: 1px solid var(--border-color); }
+    .stat-main h3 { margin: 0 0 8px 0; color: var(--text-muted); font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+    .stat-main h1 { margin: 0; color: var(--accent); font-size: 42px; font-weight: 700; }
+    .stat-sub { font-size: 13px; color: var(--text-muted); margin-top: 5px; }
+
+    .habit-summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
+    .habit-summary-card { background: var(--bg-card); padding: 15px; border-radius: 10px; box-shadow: var(--shadow); border: 1px solid var(--border-color); text-align: center; }
+    .habit-summary-card .habit-name { font-size: 12px; color: var(--text-muted); margin-bottom: 5px; font-weight: 600; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .habit-summary-card .habit-count { font-size: 24px; color: var(--accent); font-weight: 700; }
+    .habit-summary-card .habit-unit { font-size: 11px; color: var(--text-muted); }
+
+    .chart-card { background: var(--bg-card); padding: 15px; border-radius: 10px; box-shadow: var(--shadow); border: 1px solid var(--border-color); margin-bottom: 15px; }
+    .chart-card h4 { margin: 0 0 10px 0; text-align: center; color: var(--text-main); font-size: 14px;}
+
+    /* Action Buttons */
+    .action-area { padding: 0 15px 15px 15px; display: flex; flex-direction: column; gap: 10px; }
+    .btn { padding: 12px; border: none; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn:active { transform: scale(0.98); }
     
-    .input-group { margin-bottom: 15px; }
-    .input-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #34495e; font-size: 14px; }
-    .input-group input, .input-group textarea { width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 5px; font-size: 14px; }
-    .btn-save { background: #1abc9c; color: white; padding: 12px; border: none; border-radius: 5px; width: 100%; font-weight: bold; font-size: 16px; cursor: pointer; }
-    .btn-danger { background: #e74c3c; color: white; padding: 12px; border: none; border-radius: 5px; width: 100%; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
+    .btn-share { background: #34495e; color: white; width: 100%; }
+    .btn-save { background: var(--accent); color: white; width: 100%; }
+    .btn-danger { background: #e74c3c; color: white; width: 100%; font-size: 13px; padding: 10px; }
+    body.dark-mode .btn-share { background: #2c3e50; }
+
+    /* Styles for Settings Tab */
+    .input-group { margin-bottom: 15px; padding: 0 5px; }
+    .input-group label { display: block; margin-bottom: 6px; font-weight: 600; color: var(--text-main); font-size: 14px; }
+    .input-group input, .input-group textarea { width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-card); color: var(--text-main); transition: 0.3s; }
+    .input-group input:focus, .input-group textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26, 188, 156, 0.1); }
+    .input-group small { color: var(--text-muted); font-size: 11px; display: block; margin-top: 4px; line-height: 1.4; }
+
+    /* --- Welcome/Disclaimer Modal --- */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: 0.3s; backdrop-filter: blur(3px); }
+    .modal-overlay.show { opacity: 1; visibility: visible; }
+    .modal-content { background: var(--bg-card); width: 85%; max-width: 400px; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center; transform: scale(0.8); transition: 0.3s; color: var(--text-main); border: 1px solid var(--border-color); }
+    .modal-overlay.show .modal-content { transform: scale(1); }
+    
+    .modal-icon { font-size: 50px; color: var(--accent); margin-bottom: 15px; display: block; }
+    .modal-content h3 { margin: 0 0 15px 0; font-size: 20px; color: var(--accent); }
+    .modal-text { font-size: 13px; color: var(--text-main); line-height: 1.6; text-align: left; background: var(--bg-body); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color); }
+    .modal-text ul { margin: 8px 0 0 18px; padding: 0; }
+    .modal-text li { margin-bottom: 5px; }
+    .special-note { font-weight: bold; color: #e74c3c; }
+
+    /* Utility */
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
+  <div id="welcome-modal" class="modal-overlay">
+    <div class="modal-content">
+      <span class="modal-icon">🚀</span>
+      <h3>Selamat Datang!</h3>
+      <div class="modal-text">
+        Halo! Ini adalah <strong>Hybrid Tracker Pro</strong> untuk memantau aktivitasmu.<br><br>
+        <strong>PENTING: Cara Kerja Penyimpanan</strong>
+        <ul>
+          <li>Aplikasi ini menggunakan <strong>LocalStorage</strong> browser HP-mu.</li>
+          <li>Datamu <u>TIDAK</u> disimpan di server internet.</li>
+          <li><span class="special-note">JANGAN HAPUS CACHE/DATA BROWSER</span>, atau datamu akan hilang permanen.</li>
+          <li>Gunakan fitur 'Edit' untuk mengatur bulan dan jenis aktivitas.</li>
+          <li>Isian dikunci otomatis setelah lewat 3 hari.</li>
+        </ul>
+      </div>
+      <button class="btn btn-save" onclick="closeWelcome()">Saya Paham & Mulai</button>
+    </div>
+  </div>
+
   <div class="header">
-    <h2>Tracker Aktivitas</h2>
+    <h2>Hybrid Tracker Pro</h2>
+    <label class="theme-switch">
+      <input type="checkbox" id="theme-toggle" onchange="toggleTheme()">
+      <span class="slider"></span>
+    </label>
   </div>
 
   <div id="tab-form" class="tab-content active">
@@ -62,141 +165,231 @@
   </div>
 
   <div id="tab-chart" class="tab-content">
-    <div class="stat-box center">
-      <h3>Success Rate Bulan Ini</h3>
-      <h1 id="success-rate">0%</h1>
+    
+    <div id="capture-area">
+      <div class="stats-container">
+        <div class="stat-main">
+          <h3>Total Progress Bulan Ini</h3>
+          <h1 id="success-rate">0%</h1>
+          <div id="overall-desc" class="stat-sub">0 dari 0 task terselesaikan</div>
+        </div>
+
+        <div id="habit-summary-grid" class="habit-summary-grid">
+          </div>
+
+        <div class="chart-card">
+          <h4>Tren Aktivitas Harian</h4>
+          <canvas id="progressChart"></canvas>
+        </div>
+      </div>
     </div>
-    <div class="stat-box">
-      <canvas id="progressChart"></canvas>
+
+    <div class="action-area">
+      <button class="btn btn-share" onclick="downloadScreenshot()">
+        📷 Simpan Pencapaian (Gambar)
+      </button>
     </div>
   </div>
 
   <div id="tab-settings" class="tab-content">
-    <div class="stat-box">
-      <h3>Pengaturan Tracker</h3>
+    <div class="card" style="padding:15px;">
+      <h3 style="margin-top:0; color:var(--accent);">⚙️ Pengaturan</h3>
       
       <div class="input-group">
-        <label>Tanggal Mulai (Bulan yang di-track):</label>
+        <label>Bulan Tracking (Pilih Tanggal Berapapun):</label>
         <input type="date" id="setting-date">
-        <small style="color:#7f8c8d; font-size:11px;">Sistem akan menggenerate kalender 1 bulan penuh berdasarkan bulan dari tanggal ini.</small>
+        <small>Kalender 1 bulan penuh akan dibuat berdasarkan bulan dari tanggal yang kamu pilih.</small>
       </div>
 
       <div class="input-group">
-        <label>Daftar Habit (Pisahkan dengan koma):</label>
-        <textarea id="setting-habits" rows="4"></textarea>
+        <label>Daftar Aktivitas (Pisahkan dengan koma):</label>
+        <textarea id="setting-habits" rows="5" placeholder="Contoh: Murojaah, Olahraga, Ngoding"></textarea>
+        <small>Mengubah daftar ini akan mereset hitungan statistik grafik, tapi centangan lama di tanggal sebelumnya tetap tersimpan.</small>
       </div>
 
-      <button class="btn-save" onclick="saveSettings()">Simpan Pengaturan</button>
-      <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-      <button class="btn-danger" onclick="resetData()">Reset Semua Data Centang</button>
+      <button class="btn btn-save" onclick="saveSettings()">💾 Simpan Pengaturan</button>
+      <div style="margin-top:25px; border-top:1px solid var(--border-color); padding-top:15px;">
+        <small style="color:#e74c3c; margin-bottom:10px; font-weight:bold;">Zona Bahaya:</small>
+        <button class="btn btn-danger" onclick="resetData()">🗑️ Reset Semua Centang</button>
+      </div>
     </div>
   </div>
 
   <div class="nav-bottom">
-    <button id="btn-form" class="active" onclick="switchTab('form')">📝 Isi</button>
-    <button id="btn-chart" onclick="switchTab('chart')">📈 Grafik</button>
-    <button id="btn-settings" onclick="switchTab('settings')">⚙️ Edit</button>
+    <button id="btn-form" class="active" onclick="switchTab('form')">
+      <span class="nav-icon">📝</span>
+    </button>
+    <button id="btn-chart" onclick="switchTab('chart')">
+      <span class="nav-icon">📈</span>
+    </button>
+    <button id="btn-settings" onclick="switchTab('settings')">
+      <span class="nav-icon">⚙️</span>
+    </button>
   </div>
 
   <script>
-    // 1. Inisialisasi Data & Pengaturan dari LocalStorage
-    let appSettings = JSON.parse(localStorage.getItem('hybridSettings')) || {
-      startDate: new Date().toISOString().split('T')[0], // Default: Hari ini
+    // --- 1. Inisialisasi & State ---
+    let appSettings = JSON.parse(localStorage.getItem('hybridSettings Pro')) || {
+      startDate: new Date().toISOString().split('T')[0],
       habits: ["Nambah 1 lembar", "Murojaah 5 lembar", "Jogging/Sepeda", "Kebonan", "Affiliate"]
     };
-    let trackerData = JSON.parse(localStorage.getItem('hybridTrackerData')) || {};
+    let trackerData = JSON.parse(localStorage.getItem('hybridTrackerData Pro')) || {};
+    let currentTheme = localStorage.getItem('hybridTheme Pro') || 'light';
+    let myChart = null;
 
-    // Isi form pengaturan saat pertama kali dimuat
-    document.getElementById('setting-date').value = appSettings.startDate;
-    document.getElementById('setting-habits').value = appSettings.habits.join(', ');
+    // --- 2. Setup Awal (DOM Load) ---
+    document.addEventListener('DOMContentLoaded', () => {
+      // Cek Welcome Modal
+      if (!localStorage.getItem('hybridWelcomeShown Pro')) {
+        document.getElementById('welcome-modal').classList.add('show');
+      }
 
-    // 2. Fungsi Pindah Tab
-    function switchTab(tabName) {
-      ['form', 'chart', 'settings'].forEach(tab => {
-        document.getElementById(`tab-${tab}`).classList.remove('active');
-        document.getElementById(`btn-${tab}`).classList.remove('active');
-      });
-      document.getElementById(`tab-${tabName}`).classList.add('active');
-      document.getElementById(`btn-${tabName}`).classList.add('active');
-      if (tabName === 'chart') updateChart();
-    }
+      // Setup Tema
+      if (currentTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+        document.getElementById('theme-toggle').checked = true;
+      }
 
-    // 3. Fungsi Simpan Pengaturan
-    function saveSettings() {
-      appSettings.startDate = document.getElementById('setting-date').value;
-      const rawHabits = document.getElementById('setting-habits').value;
-      // Bersihkan spasi kosong dan buang item yang kosong
-      appSettings.habits = rawHabits.split(',').map(h => h.trim()).filter(h => h !== "");
-      
-      localStorage.setItem('hybridSettings', JSON.stringify(appSettings));
-      alert("Pengaturan berhasil disimpan!");
+      // Isi form pengaturan
+      document.getElementById('setting-date').value = appSettings.startDate;
+      document.getElementById('setting-habits').value = appSettings.habits.join(', ');
+
       renderTracker();
-      updateChart();
+      // Grafik di-update nanti saat tab dibuka, agar animasi Chart.js jalan
+    });
+
+    // --- 3. Fungsi Logika Dasar & UI ---
+
+    // Welcome Modal
+    function closeWelcome() {
+      localStorage.setItem('hybridWelcomeShown Pro', 'true');
+      document.getElementById('welcome-modal').classList.remove('show');
     }
 
-    // Fungsi Reset Data
-    function resetData() {
-      if(confirm("Yakin ingin menghapus semua data centang? Daftar habit tidak akan terhapus.")) {
-        trackerData = {};
-        localStorage.setItem('hybridTrackerData', JSON.stringify(trackerData));
-        renderTracker();
-        updateChart();
-        alert("Data centang berhasil direset.");
+    // Toggle Tema
+    function toggleTheme() {
+      const isDark = document.getElementById('theme-toggle').checked;
+      if (isDark) {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('hybridTheme Pro', 'dark');
+      } else {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('hybridTheme Pro', 'light');
+      }
+      // Re-render grafik agar warna sumbu menyesuaikan tema
+      if (document.getElementById('tab-chart').style.display === 'block') {
+        updateChartAndStats();
       }
     }
 
-    // 4. Render Tracker Dinamis
+    // Pindah Tab
+    function switchTab(tabName) {
+      ['form', 'chart', 'settings'].forEach(tab => {
+        document.getElementById(`tab-${tab}`).style.display = 'none';
+        document.getElementById(`btn-${tab}`).classList.remove('active');
+      });
+      document.getElementById(`tab-${tabName}`).style.display = 'block';
+      document.getElementById(`btn-${tabName}`).classList.add('active');
+      
+      if (tabName === 'chart') {
+        // Beri sedikit delay agar tab render sempurna sebelum Chart.js menggambar
+        setTimeout(updateChartAndStats, 50);
+      }
+      window.scrollTo(0, 0); // Scroll ke atas
+    }
+
+    // --- 4. Fungsi Pengaturan & Data ---
+
+    function saveSettings() {
+      appSettings.startDate = document.getElementById('setting-date').value;
+      const rawHabits = document.getElementById('setting-habits').value;
+      appSettings.habits = rawHabits.split(',').map(h => h.trim()).filter(h => h !== "");
+      
+      if(appSettings.habits.length === 0) { alert("Daftar aktivitas tidak boleh kosong."); return; }
+
+      localStorage.setItem('hybridSettings Pro', JSON.stringify(appSettings));
+      alert("Pengaturan disimpan!");
+      renderTracker();
+      switchTab('form');
+    }
+
+    function resetData() {
+      if(confirm("Yakin ingin menghapus semua data centang? Daftar aktivitas & tema tidak akan terhapus.")) {
+        trackerData = {};
+        localStorage.setItem('hybridTrackerData Pro', JSON.stringify(trackerData));
+        renderTracker();
+        alert("Data centang direset.");
+        switchTab('form');
+      }
+    }
+
+    function saveData(dayKey, habitIndex, isChecked) {
+      if (!trackerData[dayKey]) trackerData[dayKey] = {};
+      trackerData[dayKey][habitIndex] = isChecked;
+      localStorage.setItem('hybridTrackerData Pro', JSON.stringify(trackerData));
+    }
+
+    // --- 5. Rendering Core (Isi Tracker) ---
+
     function renderTracker() {
       const container = document.getElementById('tracker-container');
       container.innerHTML = '';
 
-      // Hitung tanggal riil hari ini (jam dinolkan agar perbandingan hari akurat)
       const todayReal = new Date();
       todayReal.setHours(0,0,0,0);
 
-      // Ambil referensi bulan dari Start Date
       const targetDate = new Date(appSettings.startDate);
       const year = targetDate.getFullYear();
       const month = targetDate.getMonth();
       const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const monthName = targetDate.toLocaleString('id-ID', { month: 'long' });
+
+      // Label Bulan
+      const monthLabel = document.createElement('h3');
+      monthLabel.style.cssText = "margin: 0 0 15px 5px; color: var(--text-main); font-size: 16px;";
+      monthLabel.innerText = `Periode: ${monthName} ${year}`;
+      container.appendChild(monthLabel);
 
       for (let day = 1; day <= daysInMonth; day++) {
         const currentTrackerDate = new Date(year, month, day);
+        const dayKey = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
         
-        // Hitung selisih hari untuk logika penguncian 3 hari
+        // Logika Penguncian (3 hari)
         const diffTime = todayReal - currentTrackerDate;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // Gunakan floor agar lebih akurat presisi harinya
 
         const isFuture = currentTrackerDate > todayReal;
-        const isLocked = diffDays > 3 && !isFuture;
+        // Kunci jika selisih hari > 3. diffDays 0=hari ini, 1=kemarin, 2=2hari lalu, 3=3hari lalu. >3 dikunci.
+        const isLocked = diffDays > 3; 
         const isToday = (currentTrackerDate.getTime() === todayReal.getTime());
         
         let statusBadge = '';
         if (isFuture) statusBadge = '<span class="badge badge-future">Belum Waktunya</span>';
-        else if (isLocked) statusBadge = '<span class="badge badge-locked">🔒 Terkunci (View Only)</span>';
+        else if (isLocked) statusBadge = '<span class="badge badge-locked">🔒 Terkunci</span>';
         else statusBadge = '<span class="badge badge-active">Bisa Diisi</span>';
 
         const card = document.createElement('div');
-        card.className = 'day-card';
-        if (isToday || (!isFuture && !isLocked && diffDays === 1)) card.classList.add('open'); 
+        card.className = 'card day-card';
+        // Auto-open hari ini atau kemarin
+        if (isToday || (diffDays === 1 && !isLocked)) card.classList.add('open'); 
 
         let html = `
           <div class="day-header" onclick="this.parentElement.classList.toggle('open')">
-            <span>Tanggal ${day} ${currentTrackerDate.toLocaleString('id-ID', { month: 'short' })}</span>
+            <span>Tanggal ${day} ${currentTrackerDate.toLocaleString('id-ID', { weekday: 'short' })}</span>
             ${statusBadge}
           </div>
           <div class="day-body">
         `;
 
         appSettings.habits.forEach((habit, index) => {
-          const habitKey = `day_${day}_habit_${index}`;
-          const isChecked = trackerData[habitKey] ? 'checked' : '';
+          // Cek data lama. Struktur data lama mungkin berbeda, kita handle keamanan aksesnya.
+          const isChecked = (trackerData[dayKey] && trackerData[dayKey][index]) ? 'checked' : '';
           const disabledAttr = (isLocked || isFuture) ? 'disabled' : '';
 
           html += `
             <div class="habit-row">
-              <label>${habit}</label>
-              <input type="checkbox" onchange="saveData(${day}, ${index}, this.checked)" ${isChecked} ${disabledAttr}>
+              <label style="color: ${isLocked ? 'var(--text-muted)' : 'var(--text-main)'}">${habit}</label>
+              <input type="checkbox" onchange="saveData('${dayKey}', ${index}, this.checked)" ${isChecked} ${disabledAttr}>
             </div>
           `;
         });
@@ -207,81 +400,208 @@
       }
     }
 
-    // 5. Simpan Centang
-    function saveData(day, index, isChecked) {
-      trackerData[`day_${day}_habit_${index}`] = isChecked;
-      localStorage.setItem('hybridTrackerData', JSON.stringify(trackerData));
-    }
+    // --- 6. Logika Grafik & Ringkasan Pencapaian (Advanced) ---
 
-    // 6. Logika Grafik
-    let myChart;
-    function updateChart() {
-      let totalChecked = 0;
-      let dailyProgress = [];
-      let labels = [];
-
-      const targetDate = new Date(appSettings.startDate);
-      const daysInMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0).getDate();
-      
-      // Cari tahu sampai tanggal berapa kita harus menghitung target ("hari ini" pada bulan tracking)
+    function updateChartAndStats() {
+      // Setup Waktu
       const todayReal = new Date();
-      let limitDay = daysInMonth;
-      if (todayReal.getFullYear() === targetDate.getFullYear() && todayReal.getMonth() === targetDate.getMonth()) {
-        limitDay = todayReal.getDate();
+      todayReal.setHours(0,0,0,0);
+      const targetDate = new Date(appSettings.startDate);
+      const year = targetDate.getFullYear();
+      const month = targetDate.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      // Tentukan batas hari penghitungan statistik (s.d hari ini jika di bulan yg sama)
+      let limitDayForCalc = daysInMonth;
+      if (todayReal.getFullYear() === year && todayReal.getMonth() === month) {
+        limitDayForCalc = todayReal.getDate();
       } else if (todayReal < targetDate) {
-        limitDay = 0; // Belum mulai
+        limitDayForCalc = 0; // Bulan di masa depan, progres 0
       }
 
-      let totalPossible = limitDay * appSettings.habits.length;
+      // Variabel Hitungan
+      let totalTasksPossibleOverall = limitDayForCalc * appSettings.habits.length;
+      let totalTasksDoneOverall = 0;
+      
+      // Array untuk menyimpan total per habit: [{name: 'Murojaah', count: 0}, ...]
+      let habitTotalsSummary = appSettings.habits.map(h => ({ name: h, count: 0 }));
+      
+      // Data untuk Grafik Garis
+      let dailyDoneProgressForChart = [];
+      let chartLabels = [];
 
-      for (let day = 1; day <= limitDay; day++) {
-        labels.push(`Tgl ${day}`);
-        let dailyChecked = 0;
-        for (let i = 0; i < appSettings.habits.length; i++) {
-          if (trackerData[`day_${day}_habit_${i}`]) {
-            dailyChecked++;
-            totalChecked++;
+      // Loop Hitung Data
+      for (let day = 1; day <= limitDayForCalc; day++) {
+        chartLabels.push(day); // Label sumbu X cukup angka tanggal
+        const dayKey = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        let dailyCheckedCount = 0;
+
+        appSettings.habits.forEach((habitName, index) => {
+          if (trackerData[dayKey] && trackerData[dayKey][index]) {
+            dailyCheckedCount++;
+            totalTasksDoneOverall++;
+            habitTotalsSummary[index].count++; // Tambah hitungan spesifik habit
           }
-        }
-        dailyProgress.push(dailyChecked);
+        });
+        dailyDoneProgressForChart.push(dailyCheckedCount);
       }
 
-      let successRate = totalPossible > 0 ? Math.round((totalChecked / totalPossible) * 100) : 0;
-      document.getElementById('success-rate').innerText = `${successRate}%`;
+      // --- A. Update Tampilan Ringkasan Overall ---
+      const rateLabel = document.getElementById('success-rate');
+      const descLabel = document.getElementById('overall-desc');
+      
+      let successRatePercent = totalTasksPossibleOverall > 0 ? Math.round((totalTasksDoneOverall / totalTasksPossibleOverall) * 100) : 0;
+      
+      // Animasi angka count up sederhana
+      animateCountUp(rateLabel, successRatePercent, '%');
+      descLabel.innerText = `${totalTasksDoneOverall} dari ${totalTasksPossibleOverall} tugas terselesaikan (s.d tgl ${limitDayForCalc})`;
 
+      // --- B. Update Tampilan Kartu Detail per Habit ---
+      const summaryGrid = document.getElementById('habit-summary-grid');
+      summaryGrid.innerHTML = ''; // Reset
+
+      habitTotalsSummary.forEach(habit => {
+        const card = document.createElement('div');
+        card.className = 'habit-summary-card';
+        card.innerHTML = `
+          <span class="habit-name" title="${habit.name}">${habit.name}</span>
+          <span class="habit-count">${habit.count}</span>
+          <span class="habit-unit">kali</span>
+        `;
+        summaryGrid.appendChild(card);
+      });
+
+      // --- C. Update Tampilan Grafik Garis (Chart.js) ---
       const ctx = document.getElementById('progressChart').getContext('2d');
-      if (myChart) myChart.destroy();
+      if (myChart) myChart.destroy(); // Hapus grafik lama
+
+      // Atur warna berdasarkan tema
+      const isDark = document.body.classList.contains('dark-mode');
+      const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+      const textColor = isDark ? '#b0b0b0' : '#7f8c8d';
 
       myChart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: labels,
+          labels: chartLabels,
           datasets: [{
-            label: 'Aktivitas Selesai',
-            data: dailyProgress,
+            label: 'Tugas Selesai',
+            data: dailyDoneProgressForChart,
             borderColor: '#1abc9c',
-            backgroundColor: 'rgba(26, 188, 156, 0.2)',
+            backgroundColor: isDark ? 'rgba(26, 188, 156, 0.15)' : 'rgba(26, 188, 156, 0.1)',
             borderWidth: 2,
             fill: true,
-            tension: 0.3
+            tension: 0.3,
+            pointBackgroundColor: '#1abc9c',
+            pointRadius: chartLabels.length > 20 ? 0 : 2 // Sembunyikan titik jika tgl terlalu banyak agar rapi
           }]
         },
         options: {
           responsive: true,
+          maintainAspectRatio: true,
+          aspectRatio: 2, // Atur ketinggian grafik agar pas di HP
+          plugins: {
+            legend: { display: false }, // Sembunyikan legend label dataset
+            tooltip: {
+              callbacks: {
+                title: (context) => `Tanggal ${context[0].label}`
+              }
+            }
+          },
           scales: {
             y: {
               beginAtZero: true,
               max: appSettings.habits.length,
-              ticks: { stepSize: 1 }
+              ticks: { stepSize: 1, color: textColor, font: {size: 10} },
+              grid: { color: gridColor }
+            },
+            x: {
+              ticks: { 
+                color: textColor, 
+                font: {size: 10},
+                maxRotation: 0,
+                callback: function(value, index, values) {
+                  // Tampilkan label tgl kelipatan 5 atau tgl 1 & terakhir agar tidak numpuk
+                  const tgl = chartLabels[index];
+                  if (tgl === 1 || tgl === daysInMonth || tgl % 5 === 0) return tgl;
+                  return '';
+                }
+              },
+              grid: { display: false } // Sembunyikan grid vertikal
             }
           }
         }
       });
     }
 
-    // Render Awal
-    renderTracker();
-    updateChart();
+    // Fungsi utilitas animasi angka
+    function animateCountUp(element, target, suffix = '') {
+      let current = 0;
+      const duration = 800; // ms
+      const start = performance.now();
+      
+      function step(now) {
+        const progress = Math.min((now - start) / duration, 1);
+        current = Math.floor(progress * target);
+        element.innerText = current + suffix;
+        if (progress < 1) {
+          requestAnimationFrame(step);
+        } else {
+          element.innerText = target + suffix; // Pastikan angka akhir pas
+        }
+      }
+      requestAnimationFrame(step);
+    }
+
+    // --- 7. Fitur Simpan Gambar (Screenshot via html2canvas) ---
+
+    function downloadScreenshot() {
+      const area = document.getElementById('capture-area');
+      const btn = document.querySelector('.btn-share');
+      
+      // UI Feedback
+      btn.innerText = "⏳ Sedang memproses...";
+      btn.style.opacity = '0.7';
+      btn.disabled = true;
+
+      // Ambil referensi bulan untuk nama file
+      const targetDate = new Date(appSettings.startDate);
+      const fileName = `Pencapaian-${targetDate.toLocaleString('id-ID', { month: 'short' })}-${targetDate.getFullYear()}.png`;
+
+      // Gunakan library html2canvas
+      html2canvas(area, {
+        backgroundColor: document.body.classList.contains('dark-mode') ? '#121212' : '#f4f7f6', // Sesuaikan BG body tema
+        scale: 2, // Tingkatkan kualitas gambar (resolusi x2)
+        logging: false,
+        useCORS: true // Jaga-jaga jika ada gambar external
+      }).then(canvas => {
+        // Ubah canvas jadi URL gambar data
+        const imageUri = canvas.toDataURL("image/png");
+        
+        // Buat link download pemicu otomatis
+        const link = document.createElement('a');
+        link.href = imageUri;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Restore UI
+        setTimeout(() => {
+          btn.innerText = "📷 Simpan Pencapaian (Gambar)";
+          btn.style.opacity = '1';
+          btn.disabled = false;
+        }, 500);
+        
+        alert("Gambar pencapaian berhasil dibuat dan sedang diunduh. Cek folder Download kamu.");
+      }).catch(err => {
+        console.error("Gagal mengambil gambar:", err);
+        alert("Maaf, gagal membuat gambar. Pastikan browser kamu mendukung fitur ini.");
+        btn.innerText = "📷 Simpan Pencapaian (Gambar)";
+        btn.style.opacity = '1';
+        btn.disabled = false;
+      });
+    }
   </script>
 </body>
 </html>
