@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hybrid Tracker Aktivitas</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Desain Mobile-First */
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { margin: 0; background-color: #f4f7f6; color: #333; padding-bottom: 70px; }
+    
+    .header { background: #1abc9c; color: white; padding: 20px; text-align: center; border-bottom-left-radius: 15px; border-bottom-right-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .header h2 { margin: 0; font-size: 22px; }
+    
+    /* Navigasi Bawah */
+    .nav-bottom { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 1000; }
+    .nav-bottom button { flex: 1; padding: 15px; border: none; background: none; font-size: 14px; font-weight: bold; color: #bdc3c7; cursor: pointer; transition: 0.3s; }
+    .nav-bottom button.active { color: #1abc9c; border-top: 4px solid #1abc9c; }
+    
+    /* Konten Tab */
+    .tab-content { display: none; padding: 20px; }
+    .tab-content.active { display: block; }
+    
+    /* Desain Card & Form */
+    .day-card { background: #fff; margin-bottom: 12px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e0e0e0; }
+    .day-header { padding: 15px; background: #fafafa; font-weight: bold; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .day-body { padding: 15px; border-top: 1px solid #eee; display: none; }
+    .day-card.open .day-body { display: block; }
+    
+    .habit-row { display: flex; justify-content: space-between; margin-bottom: 12px; align-items: center; font-size: 15px; }
+    input[type="checkbox"] { width: 22px; height: 22px; accent-color: #1abc9c; cursor: pointer; }
+    input[type="checkbox"]:disabled { accent-color: #95a5a6; cursor: not-allowed; }
+    
+    /* Badge Status */
+    .badge { font-size: 12px; padding: 4px 8px; border-radius: 12px; }
+    .badge-locked { background: #fadbd8; color: #c0392b; }
+    .badge-active { background: #d5f5e3; color: #27ae60; }
+    .badge-future { background: #ebdef0; color: #8e44ad; }
+    
+    /* Dashboard & Pengaturan */
+    .stat-box { background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; }
+    .stat-box.center { text-align: center; }
+    .stat-box h3 { margin: 0 0 10px 0; color: #7f8c8d; font-size: 16px; }
+    .stat-box h1 { margin: 0; color: #1abc9c; font-size: 36px; }
+    
+    .input-group { margin-bottom: 15px; }
+    .input-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #34495e; font-size: 14px; }
+    .input-group input, .input-group textarea { width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 5px; font-size: 14px; }
+    .btn-save { background: #1abc9c; color: white; padding: 12px; border: none; border-radius: 5px; width: 100%; font-weight: bold; font-size: 16px; cursor: pointer; }
+    .btn-danger { background: #e74c3c; color: white; padding: 12px; border: none; border-radius: 5px; width: 100%; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h2>Tracker Aktivitas</h2>
+  </div>
+
+  <div id="tab-form" class="tab-content active">
+    <div id="tracker-container"></div>
+  </div>
+
+  <div id="tab-chart" class="tab-content">
+    <div class="stat-box center">
+      <h3>Success Rate Bulan Ini</h3>
+      <h1 id="success-rate">0%</h1>
+    </div>
+    <div class="stat-box">
+      <canvas id="progressChart"></canvas>
+    </div>
+  </div>
+
+  <div id="tab-settings" class="tab-content">
+    <div class="stat-box">
+      <h3>Pengaturan Tracker</h3>
+      
+      <div class="input-group">
+        <label>Tanggal Mulai (Bulan yang di-track):</label>
+        <input type="date" id="setting-date">
+        <small style="color:#7f8c8d; font-size:11px;">Sistem akan menggenerate kalender 1 bulan penuh berdasarkan bulan dari tanggal ini.</small>
+      </div>
+
+      <div class="input-group">
+        <label>Daftar Habit (Pisahkan dengan koma):</label>
+        <textarea id="setting-habits" rows="4"></textarea>
+      </div>
+
+      <button class="btn-save" onclick="saveSettings()">Simpan Pengaturan</button>
+      <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+      <button class="btn-danger" onclick="resetData()">Reset Semua Data Centang</button>
+    </div>
+  </div>
+
+  <div class="nav-bottom">
+    <button id="btn-form" class="active" onclick="switchTab('form')">📝 Isi</button>
+    <button id="btn-chart" onclick="switchTab('chart')">📈 Grafik</button>
+    <button id="btn-settings" onclick="switchTab('settings')">⚙️ Edit</button>
+  </div>
+
+  <script>
+    // 1. Inisialisasi Data & Pengaturan dari LocalStorage
+    let appSettings = JSON.parse(localStorage.getItem('hybridSettings')) || {
+      startDate: new Date().toISOString().split('T')[0], // Default: Hari ini
+      habits: ["Nambah 1 lembar", "Murojaah 5 lembar", "Jogging/Sepeda", "Kebonan", "Affiliate"]
+    };
+    let trackerData = JSON.parse(localStorage.getItem('hybridTrackerData')) || {};
+
+    // Isi form pengaturan saat pertama kali dimuat
+    document.getElementById('setting-date').value = appSettings.startDate;
+    document.getElementById('setting-habits').value = appSettings.habits.join(', ');
+
+    // 2. Fungsi Pindah Tab
+    function switchTab(tabName) {
+      ['form', 'chart', 'settings'].forEach(tab => {
+        document.getElementById(`tab-${tab}`).classList.remove('active');
+        document.getElementById(`btn-${tab}`).classList.remove('active');
+      });
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+      document.getElementById(`btn-${tabName}`).classList.add('active');
+      if (tabName === 'chart') updateChart();
+    }
+
+    // 3. Fungsi Simpan Pengaturan
+    function saveSettings() {
+      appSettings.startDate = document.getElementById('setting-date').value;
+      const rawHabits = document.getElementById('setting-habits').value;
+      // Bersihkan spasi kosong dan buang item yang kosong
+      appSettings.habits = rawHabits.split(',').map(h => h.trim()).filter(h => h !== "");
+      
+      localStorage.setItem('hybridSettings', JSON.stringify(appSettings));
+      alert("Pengaturan berhasil disimpan!");
+      renderTracker();
+      updateChart();
+    }
+
+    // Fungsi Reset Data
+    function resetData() {
+      if(confirm("Yakin ingin menghapus semua data centang? Daftar habit tidak akan terhapus.")) {
+        trackerData = {};
+        localStorage.setItem('hybridTrackerData', JSON.stringify(trackerData));
+        renderTracker();
+        updateChart();
+        alert("Data centang berhasil direset.");
+      }
+    }
+
+    // 4. Render Tracker Dinamis
+    function renderTracker() {
+      const container = document.getElementById('tracker-container');
+      container.innerHTML = '';
+
+      // Hitung tanggal riil hari ini (jam dinolkan agar perbandingan hari akurat)
+      const todayReal = new Date();
+      todayReal.setHours(0,0,0,0);
+
+      // Ambil referensi bulan dari Start Date
+      const targetDate = new Date(appSettings.startDate);
+      const year = targetDate.getFullYear();
+      const month = targetDate.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const currentTrackerDate = new Date(year, month, day);
+        
+        // Hitung selisih hari untuk logika penguncian 3 hari
+        const diffTime = todayReal - currentTrackerDate;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        const isFuture = currentTrackerDate > todayReal;
+        const isLocked = diffDays > 3 && !isFuture;
+        const isToday = (currentTrackerDate.getTime() === todayReal.getTime());
+        
+        let statusBadge = '';
+        if (isFuture) statusBadge = '<span class="badge badge-future">Belum Waktunya</span>';
+        else if (isLocked) statusBadge = '<span class="badge badge-locked">🔒 Terkunci (View Only)</span>';
+        else statusBadge = '<span class="badge badge-active">Bisa Diisi</span>';
+
+        const card = document.createElement('div');
+        card.className = 'day-card';
+        if (isToday || (!isFuture && !isLocked && diffDays === 1)) card.classList.add('open'); 
+
+        let html = `
+          <div class="day-header" onclick="this.parentElement.classList.toggle('open')">
+            <span>Tanggal ${day} ${currentTrackerDate.toLocaleString('id-ID', { month: 'short' })}</span>
+            ${statusBadge}
+          </div>
+          <div class="day-body">
+        `;
+
+        appSettings.habits.forEach((habit, index) => {
+          const habitKey = `day_${day}_habit_${index}`;
+          const isChecked = trackerData[habitKey] ? 'checked' : '';
+          const disabledAttr = (isLocked || isFuture) ? 'disabled' : '';
+
+          html += `
+            <div class="habit-row">
+              <label>${habit}</label>
+              <input type="checkbox" onchange="saveData(${day}, ${index}, this.checked)" ${isChecked} ${disabledAttr}>
+            </div>
+          `;
+        });
+
+        html += `</div>`;
+        card.innerHTML = html;
+        container.appendChild(card);
+      }
+    }
+
+    // 5. Simpan Centang
+    function saveData(day, index, isChecked) {
+      trackerData[`day_${day}_habit_${index}`] = isChecked;
+      localStorage.setItem('hybridTrackerData', JSON.stringify(trackerData));
+    }
+
+    // 6. Logika Grafik
+    let myChart;
+    function updateChart() {
+      let totalChecked = 0;
+      let dailyProgress = [];
+      let labels = [];
+
+      const targetDate = new Date(appSettings.startDate);
+      const daysInMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0).getDate();
+      
+      // Cari tahu sampai tanggal berapa kita harus menghitung target ("hari ini" pada bulan tracking)
+      const todayReal = new Date();
+      let limitDay = daysInMonth;
+      if (todayReal.getFullYear() === targetDate.getFullYear() && todayReal.getMonth() === targetDate.getMonth()) {
+        limitDay = todayReal.getDate();
+      } else if (todayReal < targetDate) {
+        limitDay = 0; // Belum mulai
+      }
+
+      let totalPossible = limitDay * appSettings.habits.length;
+
+      for (let day = 1; day <= limitDay; day++) {
+        labels.push(`Tgl ${day}`);
+        let dailyChecked = 0;
+        for (let i = 0; i < appSettings.habits.length; i++) {
+          if (trackerData[`day_${day}_habit_${i}`]) {
+            dailyChecked++;
+            totalChecked++;
+          }
+        }
+        dailyProgress.push(dailyChecked);
+      }
+
+      let successRate = totalPossible > 0 ? Math.round((totalChecked / totalPossible) * 100) : 0;
+      document.getElementById('success-rate').innerText = `${successRate}%`;
+
+      const ctx = document.getElementById('progressChart').getContext('2d');
+      if (myChart) myChart.destroy();
+
+      myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Aktivitas Selesai',
+            data: dailyProgress,
+            borderColor: '#1abc9c',
+            backgroundColor: 'rgba(26, 188, 156, 0.2)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: appSettings.habits.length,
+              ticks: { stepSize: 1 }
+            }
+          }
+        }
+      });
+    }
+
+    // Render Awal
+    renderTracker();
+    updateChart();
+  </script>
+</body>
+</html>
